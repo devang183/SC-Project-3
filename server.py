@@ -50,7 +50,6 @@ def register_node():
     print(request.environ['REMOTE_PORT'])
     return jsonify({'ip': request.remote_addr}), 200
 
-
 #-----------------------SECURE STORAGE(STORAGE AND GET)--------------------------
 
 @app.route('/getallnodes', methods=['POST'])
@@ -66,7 +65,6 @@ def read_secure_storage():
     retrieved_data = storage.retrieve_data()
     print("Retrieved Data:", retrieved_data)
     return jsonify({retrieved_data}), 200
-
 
 #-----------------------ENCRYPTION AND COMPRESSION--------------------------
 @app.route('/share_private_key', methods=['POST'])
@@ -105,7 +103,6 @@ def read_data():
     print("Decrypted data:", decompressed_text)
     return decompressed_text
 #--------------------------------------------
-
 
 
 @app.route('/getdata', methods=['POST'])
