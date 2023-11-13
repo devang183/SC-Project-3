@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 import requests
 from collections import defaultdict
 import socket
-import atexit
+import atexit, json
 from apscheduler.schedulers.background import BackgroundScheduler
 
 hostname = socket.gethostname()
@@ -14,6 +14,7 @@ registered_nodes = defaultdict(dict)
 
 @app.route('/centralregistry', methods=['POST'])
 def register_node():
+    print(request)
     data = request.get_json()
     node_address = data['node_address']
     node_data = data['node_data']
@@ -27,14 +28,14 @@ def check_alive():
     for node_address, node_data in registered_nodes.copy().items():
         # print(f"Node Address: {node_address}")
         try:
-            response = requests.get(node_address+"/checkalive")
+            response = requests.get(node_address+"/checkalive", timeout=1)
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
-            print(f"Success! Status Code: {response.status_code}")
-            print(response.json())  # Assuming the response contains JSON data
+            # print(f"Success! Status Code: {response.status_code}")
+            # print(response.json())  # Assuming the response contains JSON data
         except requests.exceptions.RequestException as e:
             removed_value = registered_nodes.pop(node_address)
-            print("Removed Node: {} with data: {}".format(node_address,removed_value))
-            print(f"Error: {e}")
+            # print("Removed Node: {} with data: {}".format(node_address,removed_value))
+            # print(f"Error: {e}")
 
 @app.route('/finddata', methods=['POST'])
 def find_data():
@@ -47,6 +48,7 @@ def find_data():
             # print(ip_withdata)
             data_url = str(ip_withdata)+":33696/getdata"
             payload = {"interest_data": interest_packet}
+            payload = json.dumps(payload)
             headers = {
             'Content-Type': 'application/json'
             }
@@ -57,8 +59,7 @@ def find_data():
             except:
                 print("Error, the Node is not up: ",data_url)
             # return response.text
-            return jsonify({'data': respons}), 200
-
+            return jsonify({'data': response}), 200
     return 404
 
 if __name__ == '__main__':
@@ -68,4 +69,4 @@ if __name__ == '__main__':
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
     scheduler.start()
-    app.run(host="localhost", port=33697)
+    app.run(host="localhost", port=33700)
