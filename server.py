@@ -10,6 +10,7 @@ import socket
 import encryptionCompression as ec
 import base64
 from base64 import b64decode
+import tpm as ss
 
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
@@ -50,11 +51,21 @@ def register_node():
     return jsonify({'ip': request.remote_addr}), 200
 
 
+#-----------------------SECURE STORAGE(STORAGE AND GET)--------------------------
+
 @app.route('/getallnodes', methods=['POST'])
 def allnodes():
     print(ip_data)
     print(ip_port)
+    storage.save_data(request.remote_addr)
+    
     return jsonify({'ip': request.remote_addr}), 200
+
+@app.route('/read_secure_storage', methods=['GET'])
+def read_secure_storage():
+    retrieved_data = storage.retrieve_data()
+    print("Retrieved Data:", retrieved_data)
+    return jsonify({retrieved_data}), 200
 
 
 #-----------------------ENCRYPTION AND COMPRESSION--------------------------
@@ -72,9 +83,10 @@ def share_private_key_function():
     return "File not found", 404
 
 
-@app.route('/get_encrypted_data', methods=['POST'])
-def sample_data_generator():
-    csv_data = "temperature,Pressure,Precipitation\n30,150,20\n53,100,50"
+@app.route('/broadcast', methods=['POST'])
+def BroadCastTextData():
+    
+    csv_data = request.data.decode('utf-8')
     loaded_public_key = ec.load_key_from_file('public_key.pem', is_private=False)   
     compressed_data = ec.compress_text(csv_data) 
     encrypted_data = ec.encrypt(compressed_data, loaded_public_key)
@@ -90,6 +102,7 @@ def read_data():
     loaded_private_key = ec.load_key_from_file('private_key.pem')
     decrypted_message = ec.decrypt(b64decode(data), loaded_private_key)
     decompressed_text = ec.decompress_text(decrypted_message)
+    print("Decrypted data:", decompressed_text)
     return decompressed_text
 #--------------------------------------------
 
@@ -130,7 +143,8 @@ if __name__ == '__main__':
     scheduler.add_job(func=syncwithnodes, trigger="interval", seconds=20)
     #------------------
     private_key, public_key = ec.generate_key_pair()
-
+    storage = ss.SecureStorage()
+    
     ec.save_key_to_file(private_key, 'private_key.pem')
     ec.save_key_to_file(public_key, 'public_key.pem')
 
