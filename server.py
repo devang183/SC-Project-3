@@ -7,7 +7,9 @@ import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
 from os import walk
 import socket
-
+import encryptionCompression as ec
+import base64
+from base64 import b64decode
 
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
@@ -56,13 +58,10 @@ def allnodes():
 
 
 #-----------------------ENCRYPTION AND COMPRESSION--------------------------
-
-#Fully Working Code(tested) ---- please ignore this area --- I will clean up on integration -Sambit
 @app.route('/share_private_key', methods=['POST'])
 def share_private_key_function():
 
     #Only the selected IPs will be able to download the file
-    # remove the for loop if you want to share the file with all the IPs
 
     try:
         return send_file('private_key.pem', as_attachment=True)
@@ -72,70 +71,26 @@ def share_private_key_function():
     # If the loop completes without returning, handle the case when the file is not found
     return "File not found", 404
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-import gzip
 
-def generate_key_pair():
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
-    public_key = private_key.public_key()
+@app.route('/get_encrypted_data', methods=['POST'])
+def sample_data_generator():
+    csv_data = "temperature,Pressure,Precipitation\n30,150,20\n53,100,50"
+    loaded_public_key = ec.load_key_from_file('public_key.pem', is_private=False)   
+    compressed_data = ec.compress_text(csv_data) 
+    encrypted_data = ec.encrypt(compressed_data, loaded_public_key)
+    encoded_data = base64.b64encode(encrypted_data).decode('utf-8')
+    with open('encrypted_data.txt', 'w') as file:
+        file.write(encoded_data)
+    return jsonify({"data": encoded_data})
 
-    return private_key, public_key
-
-def save_key_to_file(key, filename):
-    with open(filename, 'wb') as key_file:
-        if isinstance(key, rsa.RSAPrivateKey):
-            key_bytes = key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
-            )
-        else:
-            key_bytes = key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
-            )
-        key_file.write(key_bytes)
-
-def load_key_from_file(filename, is_private=True):
-    with open(filename, 'rb') as key_file:
-        key_data = key_file.read()
-        if is_private:
-            return serialization.load_pem_private_key(key_data, password=None, backend=default_backend())
-        else:
-            return serialization.load_pem_public_key(key_data, backend=default_backend())
-
-def encrypt(message, public_key):
-    ciphertext = public_key.encrypt(
-        message.encode('utf-8'),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return ciphertext
-
-def decrypt(ciphertext, private_key):
-    plaintext = private_key.decrypt(
-        ciphertext,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return plaintext.decode('utf-8')
-
-
-
+@app.route('/read_data', methods=['POST'])
+def read_data():
+    data = request.json.get('data')
+    print("Encrypted data:", data)
+    loaded_private_key = ec.load_key_from_file('private_key.pem')
+    decrypted_message = ec.decrypt(b64decode(data), loaded_private_key)
+    decompressed_text = ec.decompress_text(decrypted_message)
+    return decompressed_text
 #--------------------------------------------
 
 
@@ -174,23 +129,11 @@ if __name__ == '__main__':
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=syncwithnodes, trigger="interval", seconds=20)
     #------------------
-    private_key, public_key = generate_key_pair()
+    private_key, public_key = ec.generate_key_pair()
 
-    save_key_to_file(private_key, 'private_key.pem')
-    save_key_to_file(public_key, 'public_key.pem')
+    ec.save_key_to_file(private_key, 'private_key.pem')
+    ec.save_key_to_file(public_key, 'public_key.pem')
 
-    loaded_private_key = load_key_from_file('private_key.pem')
-    loaded_public_key = load_key_from_file('public_key.pem', is_private=False)
-
-    message = "Hello, RSA Encryption!"
-
-    ciphertext = encrypt(message, loaded_public_key)
-    print("Encrypted message:", ciphertext)
-
-    decrypted_message = decrypt(ciphertext, loaded_private_key)
-    print("Decrypted message:", decrypted_message)
-    # Print the decrypted message.
-    print(decrypted_message)
     #--------------------------
     # Shut down the scheduler when exiting the app
     atexit.register(lambda: scheduler.shutdown())
