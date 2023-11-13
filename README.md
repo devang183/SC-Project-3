@@ -12,5 +12,6 @@ APIs summary report by Sambit Sourav:
 # Communication (GZip, Public and Private Key)
    - All the messages for communication between nodes is encrypted and compressed( for demo we hit this API) 
        - [POST] /broadcast
+         - Expects plain text in body
    - Decrypt sent messages, only the nodes having Private Key can decrypt
        - [POST] /read_data
