@@ -7,7 +7,8 @@ import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
 from os import walk
 import socket
-
+import joblib  # Use joblib for loading the model
+import pandas as pd
 
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
@@ -169,6 +170,55 @@ def getdata():
             return response.text
     print("Not Found")
     return 404
+
+
+#Fully Working Code(tested) - Devang
+# Load the trained model
+model = joblib.load('model.pkl')
+    
+from flask import request, jsonify
+import pandas as pd
+
+def predict(data):
+    features = data[["Temperature", "Rainfall", "Precipitation"]]
+    prediction = model.predict(features)
+    return prediction.tolist()  # Convert NumPy array to a list
+
+@app.route('/predict', methods=['POST'])
+def make_prediction():
+    new_data = request.get_json()
+
+    # Check if the required fields are present in the DataFrame
+    if isinstance(new_data, list):
+        # If new_data is a list, convert it to a DataFrame
+        new_data = pd.DataFrame(new_data)
+
+    # Check if the required fields are present in the DataFrame
+    if all(field in new_data.columns for field in ["Temperature", "Rainfall", "Precipitation"]):
+        # Make a prediction
+        result = predict(new_data)
+
+        # Create a list of dictionaries in the specified format
+        output_list = []
+        for i in range(len(new_data)):
+            output_dict = {
+                "Temperature": new_data.loc[i, "Temperature"],
+                "Rainfall": new_data.loc[i, "Rainfall"],
+                "Precipitation": new_data.loc[i, "Precipitation"],
+                "Label": round(result[i])
+            }
+            output_list.append(output_dict)
+
+        # Return the result as JSON
+        return jsonify(output_list)
+
+    else:
+        return jsonify({"error": "Invalid input format"}), 400
+
+
+
+
+
 
 if __name__ == '__main__':
     scheduler = BackgroundScheduler()
