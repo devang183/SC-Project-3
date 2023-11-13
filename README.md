@@ -1,7 +1,5 @@
 # SC-Project-3
-SC-Project-3
-
-APIs summary report:
+APIs summary report by Sambit Sourav:
 
 # Provisioning (RSA and TPM)
    - Create a Public and Private Key pair
