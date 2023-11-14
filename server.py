@@ -50,6 +50,7 @@ def register_node():
     print(request.environ['REMOTE_PORT'])
     return jsonify({'ip': request.remote_addr}), 200
 
+
 #-----------------------SECURE STORAGE(STORAGE AND GET)--------------------------
 
 @app.route('/getallnodes', methods=['POST'])
@@ -66,14 +67,15 @@ def read_secure_storage():
     print("Retrieved Data:", retrieved_data)
     return jsonify({retrieved_data}), 200
 
+
 #-----------------------ENCRYPTION AND COMPRESSION--------------------------
-@app.route('/share_private_key', methods=['POST'])
+@app.route('/share_key', methods=['POST'])
 def share_private_key_function():
 
     #Only the selected IPs will be able to download the file
 
     try:
-        return send_file('private_key.pem', as_attachment=True)
+        return send_file('aes_key.bin', as_attachment=True)
     except FileNotFoundError:
         pass  # Do nothing here or handle the exception
 
@@ -83,26 +85,27 @@ def share_private_key_function():
 
 @app.route('/broadcast', methods=['POST'])
 def BroadCastTextData():
-    
+    print("Broadcasting")
     csv_data = request.data.decode('utf-8')
-    loaded_public_key = ec.load_key_from_file('public_key.pem', is_private=False)   
+    loaded_aes_key = ec.load_aes_key_from_file('aes_key.bin') 
     compressed_data = ec.compress_text(csv_data) 
-    encrypted_data = ec.encrypt(compressed_data, loaded_public_key)
+    encrypted_data = ec.encrypt_message(compressed_data, loaded_aes_key)
     encoded_data = base64.b64encode(encrypted_data).decode('utf-8')
-    with open('encrypted_data.txt', 'w') as file:
-        file.write(encoded_data)
+    with open('encrypted_data.txt', 'wb') as file:
+        file.write(encoded_data.encode('utf-8'))
     return jsonify({"data": encoded_data})
 
 @app.route('/read_data', methods=['POST'])
 def read_data():
     data = request.json.get('data')
     print("Encrypted data:", data)
-    loaded_private_key = ec.load_key_from_file('private_key.pem')
-    decrypted_message = ec.decrypt(b64decode(data), loaded_private_key)
+    loaded_aes_key = ec.load_aes_key_from_file('aes_key.bin')
+    decrypted_message = ec.decrypt_message(b64decode(data), loaded_aes_key)
     decompressed_text = ec.decompress_text(decrypted_message)
     print("Decrypted data:", decompressed_text)
     return decompressed_text
 #--------------------------------------------
+
 
 
 @app.route('/getdata', methods=['POST'])
@@ -141,9 +144,15 @@ if __name__ == '__main__':
     #------------------
     private_key, public_key = ec.generate_key_pair()
     storage = ss.SecureStorage()
-    
-    ec.save_key_to_file(private_key, 'private_key.pem')
-    ec.save_key_to_file(public_key, 'public_key.pem')
+
+
+    aes_key = ec.generate_aes_key()
+    ec.save_aes_key_to_file(aes_key, 'aes_key.bin')
+
+
+
+    # ec.save_key_to_file(private_key, 'private_key.pem')
+    # ec.save_key_to_file(public_key, 'public_key.pem')
 
     #--------------------------
     # Shut down the scheduler when exiting the app
@@ -151,3 +160,4 @@ if __name__ == '__main__':
     # syncwithnodes()
     scheduler.start()
     app.run(host=IPAddr,port=33696)
+
