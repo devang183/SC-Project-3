@@ -11,7 +11,10 @@ import socket
 import json, requests
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
-node_address = "localhost:33696/register"
+node_address = "http://127.0.0.1:33696/register"
+headers = {
+            'Content-Type': 'application/json'
+            }
 
 parser = argparse.ArgumentParser(description='Run sensor')
 parser.add_argument('--port', type=str, help='Run on which port')
@@ -95,6 +98,7 @@ database_path = "data/sensor.db"
 
 @app.route('/checkalive', methods=['GET'])
 def check_alive():
+    print("Alive")
     # print(hostname, IPAddr)
     # return jsonify({'message': '{} is alive!'.format("http://rasp-0"+str(IPAddr)[-2:]+".berry.scss.tcd.ie")}), 200
     return jsonify({'message': '{} sensor is alive!'.format(value)}), 200
@@ -103,7 +107,7 @@ def broadcast_alive():
     data_payload = {"sensor_name": value, "port": args.port}
     data_payload = json.dumps(data_payload)
     try:
-        response = requests.post(node_address, timeout=1)
+        response = requests.post(node_address, headers=headers, data=data_payload, timeout=1)
         response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
     except requests.exceptions.RequestException as e:
         print("Unable to register with server")
@@ -153,7 +157,7 @@ def get_sensor_data(duration_hours):
 
     # Retrieve the first 50 rows from the "temperature_data" table
     # result = db.execute('SELECT * FROM {}'.format(value)).fetchall()
-    result = db.execute('SELECT * FROM {} ORDER BY timestamp DESC LIMIT {}'.format(value, duration_hours*60/5)).fetchall()
+    result = db.execute('SELECT * FROM {} ORDER BY timestamp DESC LIMIT {}'.format(value, duration_hours*60*60/5)).fetchall()
     csv_data = StringIO(newline='')
     csv_writer = csv.writer(csv_data)
     csv_writer.writerow(['Timestamp(Epoch)', "{}({})".format(value,unit)])
