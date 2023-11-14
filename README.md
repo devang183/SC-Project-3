@@ -2,7 +2,7 @@
 APIs summary report by Sambit Sourav:
 
 # Provisioning (RSA and TPM)
-   - Create a Public and Private Key pair
+   - Create a AES Key
    - Discover "Known" IPs and save it in Secure Storage(TPM)
        - [POST] /getallnodes
    - Retrive Authentic IPs from Secure Storage
