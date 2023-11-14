@@ -53,7 +53,7 @@ def find_data():
             'Content-Type': 'application/json'
             }
             try:
-                response = requests.post(data_url, headers=headers, data=payload, timeout=0.5)
+                response = requests.post(data_url, headers=headers, data=payload, timeout=5)
                 print(response.text)
                 response = response
             except:

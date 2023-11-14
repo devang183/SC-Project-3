@@ -10,22 +10,25 @@ import json
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
 registered_nodes = defaultdict(dict)
+registered_devices = defaultdict(dict)
+registered_sensors = defaultdict(dict)
 app = Flask(__name__)
 ip_data={}
 ip_port={}
 code=0
-central_url =  "http://rasp-028.berry.scss.tcd.ie:33700/centralregistry"
-# central_url= "http://localhost:33700/centralregistry"
+# central_url =  "http://rasp-028.berry.scss.tcd.ie:33700/centralregistry"
+central_url= "http://localhost:33700/centralregistry"
 headers = {
             'Content-Type': 'application/json'
             }
+
 def syncwithnodes():
     # print("chalu hogaya bhai")
     # print(filenames)
     # print(type(filenames))
     filenames = next(walk("data/"), (None, None, []))[2]  # [] if no file
     filenames = ','.join(filenames)
-    base_url = "http://"+hostname[:-2]+"{}"+".berry.scss.tcd.ie:33696/registernodes"
+    base_url = "http://"+hostname[:-2]+"{}"+".berry.scss.tcd.ie:33696/register"
     data_payload = {
     "node_address": IPAddr,    
     "node_data": filenames}
@@ -39,7 +42,7 @@ def syncwithnodes():
         for i in range(1, 50): # ip range
             try:
                 # print("trying ip: ",base_url.format(i))
-                response = requests.post(base_url.format(i), headers=headers, data=data_payload, timeout=1)
+                response = requests.post(base_url.format(i), headers=headers, data=data_payload, timeout=0.5)
             except:
                 n = 0
         print(ip_data)
@@ -57,37 +60,61 @@ def hit_alive():
         try:
             response = requests.get(node_address+"/checkalive", timeout=1)
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
-            # print(f"Success! Status Code: {response.status_code}")
-            # print(response.json())  # Assuming the response contains JSON data
         except requests.exceptions.RequestException as e:
             removed_value = registered_nodes.pop(node_address)
-            # print("Removed Node: {} with data: {}".format(node_address,removed_value))
-            # print(f"Error: {e}")
+    
+    for sensor_add, sensor_data in registered_sensors.copy().items():
+        # print(f"Node Address: {node_address}")
+        try:
+            response = requests.get(sensor_add+"/checkalive", timeout=1)
+            response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
+        except requests.exceptions.RequestException as e:
+            removed_value = registered_sensors.pop(sensor_add)
 
-@app.route('/registernodes', methods=['POST'])
+@app.route('/register', methods=['POST'])
 def register_node():
     data = request.get_json()
-    node_address = data['node_address']
-    node_data = data['node_data']
-    # Store registration information
-    registered_nodes["http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
-    print(f"Node registered: {node_address} , ","http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
-    print(registered_nodes)
-
-    # if ("http://rasp-0"+str(request.remote_addr)[-2:]+".berry.scss.tcd.ie") not in ip_data or request.data.decode('UTF-8') not in ip_data.values():
-    #     ip_data.update({"http://rasp-0"+str(request.remote_addr)[-2:]+".berry.scss.tcd.ie":request.data.decode('UTF-8')})
-    #     print("Registered Node with IP: ",request.remote_addr)
-    # if ("http://rasp-0"+str(request.remote_addr)[-2:]+".berry.scss.tcd.ie") not in ip_port or request.environ['REMOTE_PORT'] not in ip_port.values():
-    #     ip_port.update({"http://rasp-0"+str(request.remote_addr)[-2:]+".berry.scss.tcd.ie":request.environ['REMOTE_PORT']})
-    #     # print("updated port")
-    # print(request.environ['REMOTE_PORT'])
-    return jsonify({'message': 'Registration successful'}), 200
+    if 'sensor_data' in data:
+        sensor_name = data['sensor_data']
+        sensor_port = data['port']
+        # Store registration information
+        registered_sensors[sensor_name] = sensor_port
+        print(f"Sensor registered: {sensor_name} , ",f"with port: {sensor_port}")
+        print(registered_sensors)
+        return jsonify({'message': 'Device Registration successful'}), 200
+    elif 'node_address' in data:
+        node_address = data['node_address']
+        node_data = data['node_data']
+        # Store registration information
+        registered_nodes["http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
+        print(f"Node registered: {node_address} , ","http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
+        print(registered_nodes)
+        return jsonify({'message': 'Registration successful'}), 200
+    else:
+        print("incorrect json in registration")
+        return jsonify({'message': 'Incorrect Json'}), 404
 
 @app.route('/getallnodes', methods=['POST'])
 def allnodes():
     print(registered_nodes)
     # print(ip_port)
     return jsonify({'ip': request.remote_addr}), 200
+
+@app.route('/getsensordata', methods=['POST'])
+def getsensordata():
+    data=request.get_json()
+    interest_sensor=data['sensor_val']
+    print("Interest sensor = ",interest_sensor)
+    if interest_sensor in registered_sensors:
+        sensor_port = registered_sensors[interest_sensor]
+    else:
+        return jsonify({'message': 'Incorrect Json'}), 404
+    sensor_url = "localhost:"+sensor_port+"sensor_data/"+data['duration']
+    try:
+        response = requests.get(sensor_url, timeout=1)
+        return response
+    except:
+        print("{} Sensor down",interest_sensor)
 
 @app.route('/getdata', methods=['POST'])
 def getdata():
@@ -121,7 +148,7 @@ def getdata():
                 'Content-Type': 'application/json'
                 }
                 try:
-                    response = requests.post(data_url, headers=headers, data=payload, timeout=1)
+                    response = requests.post(data_url, headers=headers, data=payload, timeout=5)
                     print(response)
                 except:
                     print("Error, the Node is not up: ",data_url)
@@ -137,7 +164,7 @@ if __name__ == '__main__':
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
     scheduler.start()
-    app.run(host="localhost",port=33696)
+    app.run(host="0.0.0.0",port=33696)
 
 
 
