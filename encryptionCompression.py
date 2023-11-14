@@ -81,6 +81,31 @@ import zlib
 def compress_text(text):
     return zlib.compress(text.encode('utf-8'))
 
+
+
+#-----------AES--------------------------------------------------
+def generate_aes_key():
+    return Fernet.generate_key()
+
+def save_aes_key_to_file(key, filename):
+    with open(filename, 'wb') as key_file:
+        key_file.write(key)
+
+def load_aes_key_from_file(filename):
+    with open(filename, 'rb') as key_file:
+        return key_file.read()
+
+def encrypt_message(message, key):
+    cipher = Fernet(key)
+    ciphertext = cipher.encrypt(message)
+    return ciphertext
+
+def decrypt_message(ciphertext, key):
+    cipher = Fernet(key)
+    plaintext = cipher.decrypt(ciphertext)
+    return plaintext
+
+
 def decompress_text(compressed_data):
     decompressed_text = zlib.decompress(compressed_data).decode('utf-8')
     return decompressed_text
