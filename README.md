@@ -8,7 +8,7 @@ APIs summary report by Sambit Sourav:
    - Retrive Authentic IPs from Secure Storage
        - [GET]  /read_secure_storage
    - Send Private Key to the authenticated IPs
-       - [POST] /share_private_key
+       - [POST] /share_key
 # Communication (GZip, Public and Private Key)
    - All the messages for communication between nodes is encrypted and compressed( for demo we hit this API) 
        - [POST] /broadcast
