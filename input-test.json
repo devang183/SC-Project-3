@@ -1,0 +1,232 @@
+[
+    {
+        "Temperature": "25.2",
+        "Rainfall": "3.4",
+        "Precipitation": "3.7"
+    },
+    {
+        "Temperature": "18.1",
+        "Rainfall": "1.2",
+        "Precipitation": "1.5"
+    },
+    {
+        "Temperature": "22.4",
+        "Rainfall": "2.3",
+        "Precipitation": "2.6"
+    },
+    {
+        "Temperature": "16.7",
+        "Rainfall": "0.8",
+        "Precipitation": "1.1"
+    },
+    {
+        "Temperature": "24.3",
+        "Rainfall": "4.1",
+        "Precipitation": "4.4"
+    },
+    {
+        "Temperature": "17.5",
+        "Rainfall": "1",
+        "Precipitation": "1.3"
+    },
+    {
+        "Temperature": "21.8",
+        "Rainfall": "2.1",
+        "Precipitation": "2.4"
+    },
+    {
+        "Temperature": "15.9",
+        "Rainfall": "0.6",
+        "Precipitation": "0.9"
+    },
+    {
+        "Temperature": "23.6",
+        "Rainfall": "3.8",
+        "Precipitation": "4.1"
+    },
+    {
+        "Temperature": "16.4",
+        "Rainfall": "0.7",
+        "Precipitation": "1"
+    },
+    {
+        "Temperature": "20.7",
+        "Rainfall": "1.9",
+        "Precipitation": "2.2"
+    },
+    {
+        "Temperature": "15.1",
+        "Rainfall": "0.5",
+        "Precipitation": "0.8"
+    },
+    {
+        "Temperature": "22.9",
+        "Rainfall": "3.1",
+        "Precipitation": "3.4"
+    },
+    {
+        "Temperature": "16",
+        "Rainfall": "0.6",
+        "Precipitation": "0.9"
+    },
+    {
+        "Temperature": "20.3",
+        "Rainfall": "1.7",
+        "Precipitation": "2"
+    },
+    {
+        "Temperature": "14.7",
+        "Rainfall": "0.4",
+        "Precipitation": "0.7"
+    },
+    {
+        "Temperature": "22.5",
+        "Rainfall": "2.9",
+        "Precipitation": "3.2"
+    },
+    {
+        "Temperature": "15.6",
+        "Rainfall": "0.5",
+        "Precipitation": "0.8"
+    },
+    {
+        "Temperature": "20",
+        "Rainfall": "1.6",
+        "Precipitation": "1.9"
+    },
+    {
+        "Temperature": "14.4",
+        "Rainfall": "0.4",
+        "Precipitation": "0.7"
+    },
+    {
+        "Temperature": "22.2",
+        "Rainfall": "2.7",
+        "Precipitation": "3"
+    },
+    {
+        "Temperature": "15.3",
+        "Rainfall": "0.5",
+        "Precipitation": "0.8"
+    },
+    {
+        "Temperature": "19.7",
+        "Rainfall": "1.5",
+        "Precipitation": "1.8"
+    },
+    {
+        "Temperature": "14.1",
+        "Rainfall": "0.3",
+        "Precipitation": "0.6"
+    },
+    {
+        "Temperature": "21.9",
+        "Rainfall": "2.5",
+        "Precipitation": "2.8"
+    },
+    {
+        "Temperature": "15",
+        "Rainfall": "0.4",
+        "Precipitation": "0.7"
+    },
+    {
+        "Temperature": "19.4",
+        "Rainfall": "1.4",
+        "Precipitation": "1.7"
+    },
+    {
+        "Temperature": "13.8",
+        "Rainfall": "0.3",
+        "Precipitation": "0.6"
+    },
+    {
+        "Temperature": "21.6",
+        "Rainfall": "2.3",
+        "Precipitation": "2.6"
+    },
+    {
+        "Temperature": "14.7",
+        "Rainfall": "0.4",
+        "Precipitation": "0.7"
+    },
+    {
+        "Temperature": "19.1",
+        "Rainfall": "1.3",
+        "Precipitation": "1.6"
+    },
+    {
+        "Temperature": "13.5",
+        "Rainfall": "0.3",
+        "Precipitation": "0.6"
+    },
+    {
+        "Temperature": "21.3",
+        "Rainfall": "2.1",
+        "Precipitation": "2.4"
+    },
+    {
+        "Temperature": "14.4",
+        "Rainfall": "0.3",
+        "Precipitation": "0.6"
+    },
+    {
+        "Temperature": "18.8",
+        "Rainfall": "1.2",
+        "Precipitation": "1.5"
+    },
+    {
+        "Temperature": "13.2",
+        "Rainfall": "0.2",
+        "Precipitation": "0.5"
+    },
+    {
+        "Temperature": "21",
+        "Rainfall": "1.9",
+        "Precipitation": "2.2"
+    },
+    {
+        "Temperature": "14.1",
+        "Rainfall": "0.3",
+        "Precipitation": "0.6"
+    },
+    {
+        "Temperature": "18.5",
+        "Rainfall": "1.1",
+        "Precipitation": "1.4"
+    },
+    {
+        "Temperature": "12.9",
+        "Rainfall": "0.2",
+        "Precipitation": "0.5"
+    },
+    {
+        "Temperature": "20.7",
+        "Rainfall": "1.7",
+        "Precipitation": "2"
+    },
+    {
+        "Temperature": "13.8",
+        "Rainfall": "0.3",
+        "Precipitation": "0.6"
+    },
+    {
+        "Temperature": "18.2",
+        "Rainfall": "1",
+        "Precipitation": "1.3"
+    },
+    {
+        "Temperature": "12.6",
+        "Rainfall": "0.2",
+        "Precipitation": "0.5"
+    },
+    {
+        "Temperature": "20.4",
+        "Rainfall": "1.6",
+        "Precipitation": "1.9"
+    },
+    {
+        "Temperature": "13.5",
+        "Rainfall": "0.3",
+        "Precipitation": "0.6"
+    }
+]
