@@ -162,7 +162,7 @@ def get_sensor_data(duration_hours):
     csv_writer = csv.writer(csv_data)
     csv_writer.writerow(['Timestamp(Epoch)', "{}({})".format(value,unit)])
     csv_writer.writerows(result)
-    print(csv_data)
+    # print(csv_data)
 
     headers = {
         'Content-Type': 'text/csv',
