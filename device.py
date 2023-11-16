@@ -2,6 +2,7 @@ import requests
 from os import walk
 import json
 import argparse
+import time
 import socket
 import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -35,7 +36,7 @@ def get_sensor_data():
         data_payload = json.dumps(data_payload)
         print(data_payload)
         try:
-            response = requests.post(node_sensor_url, headers=headers, data=data_payload, timeout=1)
+            response = requests.post(node_sensor_url, headers=headers, data=data_payload, timeout=1, verify=False)
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
             print(response.text)
         except requests.exceptions.RequestException as e:
@@ -48,7 +49,7 @@ def broadcast_alive():
     json_data_bytes = data_payload.encode('utf-8')
     json_data_bytes = ec.encrypt_message(json_data_bytes, aes_key) 
     try:
-        response = requests.post(node_address, headers=headers, data=json_data_bytes, timeout=1)
+        response = requests.post(node_address, headers=headers, data=json_data_bytes, timeout=1, verify=False)
         response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
     except requests.exceptions.RequestException as e:
         print("Unable to register with server")
@@ -82,6 +83,7 @@ scheduler.start()
 
 try:
     while True:
+        time.sleep(10)
         pass
 except (KeyboardInterrupt, SystemExit):
     # Cleanly shut down the scheduler

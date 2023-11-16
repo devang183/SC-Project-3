@@ -9,6 +9,7 @@ import socket
 import json
 import argparse
 import urllib3
+import ipaddress
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 #-----Sambit---------------
@@ -72,50 +73,49 @@ def syncwithnodes():
         return response.status_code
     except:
         print("central server down, distributed mode enabled")
-        broadcast_address = '<broadcast>'
+        broadcast_address = "10.35.70.255"
+        # print(broadcast_address)
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        server_socket.sendto(encrypted_data, (broadcast_address, 33696))
-
-        # for i in range(1, 50): # ip range
-        #     if(i == hostname[:-2]):
-        #         continue
-        #     try:
-        #         # print("trying ip: ",base_url.format(i))
-        #         response = requests.post(base_url.format(i), headers=headers, data=encrypted_data, timeout=0.5)
-        #     except:
-        #         n = 0
-        # print(ip_data)
-        # print(ip_port)
+        server_socket.sendto(encrypted_data, (broadcast_address, 33650))
+        server_socket.close()
         return True
 
-def discover_services(port=33696):
+def discover_services(port=33650):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     client_socket.bind(('0.0.0.0', port))
-    client_socket.settimeout(10)
-    try:
-        print("Listening for distributed services")
-        data, addr = client_socket.recvfrom(1024)
-        data = ec.decrypt_message(data, aes_key)
-        # print("Decrypted data:", data)
-        data = json.loads(data.decode('utf-8'))
-        # print(f"Discovered service: {data}")
-        if 'node_name' in data and (data['node_name']!=args.name):
-            dis_registered_nodes[data['node_name']] = "https://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
-            dis_registered_devices[data['node_name']] = data['device_names'].split(',')
-            dis_registered_sensors[data['node_name']] = data['sensor_name'].split(',')
-            dis_registered_sensors_ports[data['node_name']] = data['sensor_port'].split(',')
-            dis_registration_timestamps[data['node_name']] = time.time()
-            print(dis_registered_nodes)
-            print(dis_registered_devices)
-            print(dis_registered_sensors)
-            print(dis_registered_sensors_ports)
-        else:
-            print("Received a broadcast, but it lacks required fields.")
-    except:
-        print("Distributed Down")
-        pass
+    # client_socket.settimeout(10)
+    while True:
+        try:
+            # print("Listening for distributed services")
+            data, addr = client_socket.recvfrom(1024)
+        except socket.timeout:
+            print("Socket Timeout")
+            # return False
+        try:
+            data = ec.decrypt_message(data, aes_key)
+            # print("Decrypted data:", data)
+            data = json.loads(data.decode('utf-8'))
+            # print(f"Discovered service: {data}")
+            if 'node_name' in data and (data['node_name']!=args.name):
+                dis_registered_nodes[data['node_name']] = "https://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
+                dis_registered_devices[data['node_name']] = data['device_names'].split(',')
+                dis_registered_sensors[data['node_name']] = data['sensor_name'].split(',')
+                dis_registered_sensors_ports[data['node_name']] = data['sensor_port'].split(',')
+                # dis_registration_timestamps[data['node_name']] = time.time()
+                print("Distributed Nodes: ",dis_registered_nodes)
+                print("Distributed Devices: ",dis_registered_devices)
+                print("Distributed Sensors: ",dis_registered_sensors)
+                print("Distributed Sensor Ports: ",dis_registered_sensors_ports)
+                # return True
+            else:
+                pass
+                # print("Received a broadcast, but it lacks required fields.")
+                # return False
+        except:
+            print("Distributed Down")
+            # return False
 
 
 @app.route('/checkalive', methods=['GET'])
@@ -124,13 +124,16 @@ def check_alive():
     return jsonify({'message': '{} is alive!'.format("https://rasp-0"+str(IPAddr)[-2:]+".berry.scss.tcd.ie")}), 200
 
 def hit_alive():
-    for node_name, node_add in registered_nodes.copy().items():
+    for node_name, node_add in dis_registered_nodes.copy().items():
         # print(f"Node Address: {node_address}")
         try:
-            response = requests.get(node_add+"/checkalive", timeout=1, verify=False)
+            response = requests.get(node_add+":33696/checkalive", timeout=1, verify=False)
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
         except requests.exceptions.RequestException as e:
-            removed_value = registered_nodes.pop(node_name)
+            dis_registered_nodes.pop(node_name)
+            dis_registered_devices.pop(node_name)
+            dis_registered_sensors.pop(node_name)
+            dis_registered_sensors_ports.pop(node_name)
     
     for sensor_name, sensor_port in registered_sensors.copy().items():
         # print(sensor_name, sensor_port)
@@ -139,19 +142,12 @@ def hit_alive():
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
             # print(response.json())
         except requests.exceptions.RequestException as e:
-            removed_value = registered_sensors.pop(sensor_name)
+            registered_sensors.pop(sensor_name)
 
 def cleanup_devices():
     current_time = time.time()
     # Iterate over devices and remove those not updated in the last 5 seconds
     devices_to_remove = [device for device, timestamp in device_registration_timestamps.copy().items() if current_time - timestamp > 8]
-    dis_to_remove = [node for node, timestamp in dis_registration_timestamps.copy().items() if current_time - timestamp > 8]
-    for node in dis_to_remove:
-        del dis_registered_nodes[node]
-        del dis_registered_devices[node]
-        del dis_registered_sensors[node]
-        del dis_registered_sensors_ports[node]
-        del device_registration_timestamps[node]
     for device in devices_to_remove:
         del registered_devices[device]
         del device_registration_timestamps[device]
@@ -189,7 +185,7 @@ def register_node():
             node_add = data['node_add']
             registered_nodes[node_name] = "https://rasp-0"+str(node_add)[-2:]+".berry.scss.tcd.ie"
             # registered_nodes["https://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
-            print(f"Node registered: {node_name} , ","https://rasp-0"+str(node_add)[-2:]+".berry.scss.tcd.ie")
+            # print(f"Node registered: {node_name} , ","https://rasp-0"+str(node_add)[-2:]+".berry.scss.tcd.ie")
             # print(registered_nodes)
             return jsonify({'message': 'Registration successful'}), 200
         elif 'device_name' in data:
@@ -200,7 +196,7 @@ def register_node():
             registered_devices[device_name] = interest
             device_registration_timestamps[device_name] = time.time()
             # print(f"Devuce registered: {device_name} , ","https://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
-            print("Device Registered: ", device_name)
+            # print("Device Registered: ", device_name)
             # print(registered_devices)
             return jsonify({'message': 'Registration successful'}), 200
         else:
@@ -270,7 +266,7 @@ def read_data():
 @app.route('/getsensordata', methods=['POST'])
 def getsensordata():
     data=request.get_json()
-    print(data)
+    # print(data)
     interest_sensor=data['sensor_val']
     headers_csv = {
             'Content-Type': 'text/csv',
@@ -282,7 +278,7 @@ def getsensordata():
         #change the URL for PI
         sensor_url = "https://localhost:"+sensor_port+"/sensor_data/"+data['duration']
         try:
-            print(sensor_url)
+            # print(sensor_url)
             response = requests.get(sensor_url, timeout=1, verify=False)
             response.raise_for_status()
             # print(response.text)
@@ -299,24 +295,30 @@ def getsensordata():
                     'Content-Type': 'application/json'
                     }
             payload = {"sensor_val":interest_sensor, "duration":data['duration']}
+            payload = json.dumps(payload)
+            # print(payload)
             response = requests.post(central_url+"/finddata", headers=headers, data=payload, timeout=5, verify=False)
+            # print(response.json())
+            json_resp = response.json()
             response.raise_for_status()
-            print(response.text)
+            response = requests.post(json_resp["data_available"], headers=headers, data=payload, timeout=5, verify=False)
             return Response(response.text, headers=headers_csv)
         except:
             print("Central down, Trying distributed")
             #---------------------------------------------communicate with central and distributed
         try:
-            print("trying distributed")
-            for key, value in dis_registered_sensors.copy().values():
+            # print("trying distributed")
+            for key, value in dis_registered_sensors.copy().items():
                 if interest_sensor in value:
                     payload = {"sensor_val":interest_sensor, "duration":data['duration']}
+                    payload = json.dumps(payload)
                     ip_withdata=dis_registered_nodes[key]
                     # print(ip_withdata)
                     data_url = str(ip_withdata)+":33696/getsensordata"
+                    # print(data_url)
                     response = requests.post(data_url, headers=headers, data=payload, timeout=5, verify=False)
                     response.raise_for_status()
-                    print("Response from distributed ",response.text)
+                    # print("Response from distributed ",response.text)
                     return Response(response.text, headers=headers_csv)
         except:
             print("not available in distributed")
@@ -365,8 +367,8 @@ def getdata():
 if __name__ == '__main__':
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=syncwithnodes, trigger="interval", seconds=5)
-    scheduler.add_job(func=hit_alive, trigger="interval", seconds=5)
-    scheduler.add_job(func=cleanup_devices, trigger="interval", seconds=5)
+    scheduler.add_job(func=hit_alive, trigger="interval", seconds=10)
+    scheduler.add_job(func=cleanup_devices, trigger="interval", seconds=10)
     scheduler.add_job(func=discover_services, trigger="interval", seconds=10, max_instances=1, replace_existing=True)
     
     #------------------Sambit's changes------------------

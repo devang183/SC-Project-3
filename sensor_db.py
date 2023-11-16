@@ -12,7 +12,6 @@ import json, requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
 import encryptionCompression as ec
 aes_key = ec.load_aes_key_from_file('aes_key.bin')
 
@@ -45,25 +44,25 @@ elif args.sensor == "rain":
 elif args.sensor == "dist_front":
     minval = 1  #mm of rainfall
     maxval = 10
-    value = "Ultrasonic_Distance_Sensor_(Front)"
+    value = "Ultrasonic_Distance_Sensor_Front"
     unit = "m"
 
 elif args.sensor == "dist_rear":
     minval = 1  #mm of rainfall
     maxval = 20
-    value = "Ultrasonic_Distance_Sensor_(Rear)"
+    value = "Ultrasonic_Distance_Sensor_Rear"
     unit = "m"
 
 elif args.sensor == "dist_left":
     minval = 1  #mm of rainfall
     maxval = 8
-    value = "Ultrasonic_Distance_Sensor_(Left)"
+    value = "Ultrasonic_Distance_Sensor_Left"
     unit = "m"   
 
 elif args.sensor == "dist_right":
     minval = 1  #mm of rainfall
     maxval = 9
-    value = "Ultrasonic_Distance_Sensor_(Right)"
+    value = "Ultrasonic_Distance_Sensor_Right"
     unit = "m"
 
 elif args.sensor == "light":
@@ -117,7 +116,7 @@ def broadcast_alive():
     json_data_bytes = ec.encrypt_message(json_data_bytes, aes_key)
     
     try:
-        response = requests.post(node_address, headers=headers, data=json_data_bytes, timeout=1)
+        response = requests.post(node_address, headers=headers, data=json_data_bytes, timeout=1, verify=False)
         response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
     except requests.exceptions.RequestException as e:
         print("Unable to register with server")

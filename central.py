@@ -27,7 +27,6 @@ registered_devices = defaultdict(dict)
 registered_sensors = defaultdict(dict)
 registered_sensors_ports = defaultdict(dict)
 
-
 #-----------------RBAC (Sambit)----------------
 app.config['JWT_SECRET_KEY'] = 'your_secret_key'
 jwt = JWTManager(app)
@@ -51,10 +50,6 @@ def register_node():
     # registered_nodes["https://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
     # registered_sensors[sensor_name] = sensor_port
     # print(f"Node registered: {node_address} , ","https://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
-    print("Registered Nodes: ",registered_nodes)
-    print("Registered Devives: ",registered_devices)
-    print("Registered Sensors: ",registered_sensors)
-    print("Registered Sensor Ports: ",registered_sensors_ports)
     return jsonify({'message': 'Registration successful'}), 200
 
 def check_alive():
@@ -63,7 +58,7 @@ def check_alive():
         try:
             # print(node_name)
             # print(node_add+"/checkalive")
-            response = requests.get(node_add+"/checkalive", timeout=1, verify=False)
+            response = requests.get(node_add+"/checkalive", timeout=5, verify=False)
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
         except requests.exceptions.RequestException as e:
             registered_nodes.pop(node_name)
@@ -71,25 +66,35 @@ def check_alive():
             registered_sensors.pop(node_name)
             registered_sensors_ports.pop(node_name)
 
+def print_list():
+    print("Registered Nodes: ",registered_nodes)
+    print("Registered Devives: ",registered_devices)
+    print("Registered Sensors: ",registered_sensors)
+    print("Registered Sensor Ports: ",registered_sensors_ports)
+
 @app.route('/finddata', methods=['POST'])
 def find_data():
     data=request.get_json()
     interest_sensor=data['sensor_val']
-    print("Interest sensor = ",interest_sensor)
+    # print("Interest sensor = ",interest_sensor)
     headers_csv = {
             'Content-Type': 'text/csv',
             'Content-Disposition': 'attachment; filename={}.csv'.format(interest_sensor)
             }
     payload = {"sensor_val":interest_sensor, "duration":data['duration']}
-    for key, value in registered_sensors.copy().values():
+    payload = json.dumps(payload)
+    for key, value in registered_sensors.copy().items():
         if interest_sensor in value:
             ip_withdata=registered_nodes[key]
             # print(ip_withdata)
             data_url = str(ip_withdata)+":33696/getsensordata"
-            response = requests.post(data_url, headers=headers, data=payload, timeout=5, verify=False)
-            response.raise_for_status()
+            # print(data_url)
+            return_json = {"data_available": data_url}
+            return_json = json.dumps(return_json)
+            # response = requests.post(data_url, headers=headers, data=payload, timeout=5, verify=False)
+            # response.raise_for_status()
             # print("Response from server ",response.text)
-            return Response(response.text, headers=headers_csv)
+            return Response(return_json, headers=headers)
     return 404
 #--------------------RBAC (Sambit)--------------------
 @app.route('/login', methods=['POST'])
@@ -119,7 +124,8 @@ def read_secure_storage():
 #--------------------RBAC----------------------------
 if __name__ == '__main__':
     scheduler = BackgroundScheduler()
-    scheduler.add_job(func=check_alive, trigger="interval", seconds=5)
+    scheduler.add_job(func=check_alive, trigger="interval", seconds=10)
+    scheduler.add_job(func=print_list, trigger="interval", seconds=10)
     # Shut down the scheduler when exiting the app
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
