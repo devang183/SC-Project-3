@@ -361,7 +361,7 @@ if __name__ == '__main__':
     scheduler.add_job(func=syncwithnodes, trigger="interval", seconds=5)
     scheduler.add_job(func=hit_alive, trigger="interval", seconds=5)
     scheduler.add_job(func=cleanup_devices, trigger="interval", seconds=5)
-    scheduler.add_job(func=discover_services, trigger="interval", seconds=10)
+    scheduler.add_job(func=discover_services, trigger="interval", seconds=10, max_instances=1, replace_existing=True)
     
     #------------------Sambit's changes------------------
     storage = ss.SecureStorage()
