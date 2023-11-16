@@ -8,7 +8,8 @@ from collections import defaultdict
 import socket
 import json
 import argparse
-import asyncio
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 #-----Sambit---------------
 import encryptionCompression as ec
@@ -37,10 +38,10 @@ dis_registration_timestamps = defaultdict(dict)
 
 app = Flask(__name__)
 aes_key = ec.load_aes_key_from_file('aes_key.bin')
-central_url =  "http://rasp-028.berry.scss.tcd.ie:33700"
-# central_url="http://10.35.70.28:33700"
+central_url =  "https://rasp-028.berry.scss.tcd.ie:33700"
+# central_url="https://10.35.70.28:33700"
 
-# central_url= "http://localhost:33700"
+# central_url= "https://localhost:33700"
 headers = {
             'Content-Type': 'application/json'
             }
@@ -51,7 +52,7 @@ def syncwithnodes():
     # print(type(filenames))
     # filenames = next(walk("data/"), (None, None, []))[2]  # [] if no file
     # filenames = ','.join(filenames)
-    base_url = "http://"+hostname[:-2]+"{}"+".berry.scss.tcd.ie:33696/register"
+    base_url = "https://"+hostname[:-2]+"{}"+".berry.scss.tcd.ie:33696/register"
     data_payload = {
     "node_name":args.name,
     "node_address": IPAddr,
@@ -66,7 +67,8 @@ def syncwithnodes():
     # print("Encrypted data:", encrypted_data)
     try:
         # print(central_url+"/centralregistry")
-        response = requests.post(central_url+"/centralregistry", headers=headers, data=encrypted_data, timeout=1)
+        response = requests.post(central_url+"/centralregistry", headers=headers, data=encrypted_data, timeout=1, verify=False)
+
         return response.status_code
     except:
         print("central server down, distributed mode enabled")
@@ -100,28 +102,32 @@ def discover_services(port=33696):
         data = json.loads(data.decode('utf-8'))
         # print(f"Discovered service: {data}")
         if 'node_name' in data and (data['node_name']!=args.name):
-            dis_registered_nodes[data['node_name']] = "http://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
+            dis_registered_nodes[data['node_name']] = "https://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
             dis_registered_devices[data['node_name']] = data['device_names'].split(',')
             dis_registered_sensors[data['node_name']] = data['sensor_name'].split(',')
             dis_registered_sensors_ports[data['node_name']] = data['sensor_port'].split(',')
             dis_registration_timestamps[data['node_name']] = time.time()
-            print(f"Discovered service: {data}")
+            print(dis_registered_nodes)
+            print(dis_registered_devices)
+            print(dis_registered_sensors)
+            print(dis_registered_sensors_ports)
         else:
             print("Received a broadcast, but it lacks required fields.")
-    except json.JSONDecodeError:
-        print("Received a broadcast, but it is not a valid JSON.")
+    except:
+        print("Distributed Down")
+        pass
 
 
 @app.route('/checkalive', methods=['GET'])
 def check_alive():
     # print(hostname, IPAddr)
-    return jsonify({'message': '{} is alive!'.format("http://rasp-0"+str(IPAddr)[-2:]+".berry.scss.tcd.ie")}), 200
+    return jsonify({'message': '{} is alive!'.format("https://rasp-0"+str(IPAddr)[-2:]+".berry.scss.tcd.ie")}), 200
 
 def hit_alive():
     for node_name, node_add in registered_nodes.copy().items():
         # print(f"Node Address: {node_address}")
         try:
-            response = requests.get(node_add+"/checkalive", timeout=1)
+            response = requests.get(node_add+"/checkalive", timeout=1, verify=False)
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
         except requests.exceptions.RequestException as e:
             removed_value = registered_nodes.pop(node_name)
@@ -129,7 +135,7 @@ def hit_alive():
     for sensor_name, sensor_port in registered_sensors.copy().items():
         # print(sensor_name, sensor_port)
         try:
-            response = requests.get("http://localhost:"+sensor_port+"/checkalive", timeout=1)
+            response = requests.get("https://localhost:"+sensor_port+"/checkalive", timeout=1, verify=False)
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
             # print(response.json())
         except requests.exceptions.RequestException as e:
@@ -164,7 +170,7 @@ def register_node():
         return jsonify({'message': 'Pls dont register yourself'}), 200
     # print(data)
     if 'node_name' in data and (data['node_name']!=args.name):
-        dis_registered_nodes[data['node_name']] = "http://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
+        dis_registered_nodes[data['node_name']] = "https://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
         dis_registered_devices[data['node_name']] = data['device_names'].split(',')
         dis_registered_sensors[data['node_name']] = data['sensor_name'].split(',')
         dis_registered_sensors_ports[data['node_name']] = data['sensor_port'].split(',')
@@ -181,19 +187,19 @@ def register_node():
         elif 'node_address' in data:
             node_name = data['node_name']
             node_add = data['node_add']
-            registered_nodes[node_name] = "http://rasp-0"+str(node_add)[-2:]+".berry.scss.tcd.ie"
-            # registered_nodes["http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
-            print(f"Node registered: {node_name} , ","http://rasp-0"+str(node_add)[-2:]+".berry.scss.tcd.ie")
+            registered_nodes[node_name] = "https://rasp-0"+str(node_add)[-2:]+".berry.scss.tcd.ie"
+            # registered_nodes["https://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
+            print(f"Node registered: {node_name} , ","https://rasp-0"+str(node_add)[-2:]+".berry.scss.tcd.ie")
             # print(registered_nodes)
             return jsonify({'message': 'Registration successful'}), 200
         elif 'device_name' in data:
             # print(data)
             device_name = data['device_name']
             interest = data['interest']
-            # registered_nodes["http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
+            # registered_nodes["https://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
             registered_devices[device_name] = interest
             device_registration_timestamps[device_name] = time.time()
-            # print(f"Devuce registered: {device_name} , ","http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
+            # print(f"Devuce registered: {device_name} , ","https://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
             print("Device Registered: ", device_name)
             # print(registered_devices)
             return jsonify({'message': 'Registration successful'}), 200
@@ -274,10 +280,10 @@ def getsensordata():
     if interest_sensor in registered_sensors:
         sensor_port = registered_sensors[interest_sensor]
         #change the URL for PI
-        sensor_url = "http://localhost:"+sensor_port+"/sensor_data/"+data['duration']
+        sensor_url = "https://localhost:"+sensor_port+"/sensor_data/"+data['duration']
         try:
             print(sensor_url)
-            response = requests.get(sensor_url, timeout=1)
+            response = requests.get(sensor_url, timeout=1, verify=False)
             response.raise_for_status()
             # print(response.text)
             return Response(response.text, headers=headers_csv)
@@ -293,7 +299,7 @@ def getsensordata():
                     'Content-Type': 'application/json'
                     }
             payload = {"sensor_val":interest_sensor, "duration":data['duration']}
-            response = requests.post(central_url+"/finddata", headers=headers, data=payload, timeout=5)
+            response = requests.post(central_url+"/finddata", headers=headers, data=payload, timeout=5, verify=False)
             response.raise_for_status()
             print(response.text)
             return Response(response.text, headers=headers_csv)
@@ -308,7 +314,7 @@ def getsensordata():
                     ip_withdata=dis_registered_nodes[key]
                     # print(ip_withdata)
                     data_url = str(ip_withdata)+":33696/getsensordata"
-                    response = requests.post(data_url, headers=headers, data=payload, timeout=5)
+                    response = requests.post(data_url, headers=headers, data=payload, timeout=5, verify=False)
                     response.raise_for_status()
                     print("Response from distributed ",response.text)
                     return Response(response.text, headers=headers_csv)
@@ -326,7 +332,7 @@ def getdata():
     interest_payload = {"interest_data": interest_packet}
     interest_payload = json.dumps(interest_payload)
     try:
-        response = requests.post(central_url+"/centralregistry", headers=headers, data=interest_payload, timeout=1)
+        response = requests.post(central_url+"/centralregistry", headers=headers, data=interest_payload, timeout=1, verify=False)
         return response.json()
     except:
         print("Distributed mode being used")
@@ -348,7 +354,7 @@ def getdata():
                 'Content-Type': 'application/json'
                 }
                 try:
-                    response = requests.post(data_url, headers=headers, data=payload, timeout=5)
+                    response = requests.post(data_url, headers=headers, data=payload, timeout=5, verify=False)
                     print(response)
                 except:
                     print("Error, the Node is not up: ",data_url)
@@ -370,5 +376,6 @@ if __name__ == '__main__':
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
     scheduler.start()
-    app.run(host="0.0.0.0",port=33696)
+    app.run(host="0.0.0.0",port=33696, ssl_context='adhoc')
+
 

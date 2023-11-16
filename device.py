@@ -5,18 +5,20 @@ import argparse
 import socket
 import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
-import joblib
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 import encryptionCompression as ec
 aes_key = ec.load_aes_key_from_file('aes_key.bin')
 
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
-# central_url= "https://localhost:33700/finddata"
-node_address = "http://127.0.0.1:33696/register"
+# central_url= "httpss://localhost:33700/finddata"
+node_address = "https://127.0.0.1:33696/register"
 headers = {
             'Content-Type': 'application/json'
             }
-node_sensor_url= "http://127.0.0.1:33696/getsensordata"
+node_sensor_url= "https://127.0.0.1:33696/getsensordata"
 
 parser = argparse.ArgumentParser(description='Run device with the interest packet')
 parser.add_argument('--interest', type=str, help='Query interest file')
@@ -52,7 +54,7 @@ def broadcast_alive():
         print("Unable to register with server")
 
 # def recv_data():
-#     # base_url = "https://"+hostname[:-2]+"{}"+".berry.scss.tcd.ie:33696/registernodes"
+#     # base_url = "httpss://"+hostname[:-2]+"{}"+".berry.scss.tcd.ie:33696/registernodes"
 #     interest_packet=args.interest
 #     print("Interest packet = ",interest_packet)
 #     interest_payload = {"interest_data": interest_packet}
@@ -63,8 +65,8 @@ def broadcast_alive():
 #         return response.json()
 #     except:
 #         print("Central server down, Distributed mode enabled")
-#         # data_url ="https://rasp-0"+str(IPAddr)[-2:]+".berry.scss.tcd.ie:33696/getdata"
-#         data_url ="https://localhost:33696/getdata"
+#         # data_url ="httpss://rasp-0"+str(IPAddr)[-2:]+".berry.scss.tcd.ie:33696/getdata"
+#         data_url ="httpss://localhost:33696/getdata"
 #         response = requests.post(data_url, headers=headers, data=interest_payload, timeout=5)
 #         print(response.json())
 

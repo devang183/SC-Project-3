@@ -4,6 +4,9 @@ from collections import defaultdict
 import socket
 import atexit, json
 from apscheduler.schedulers.background import BackgroundScheduler
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 #----------Sambit----------------
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from rbac import is_admin, users
@@ -39,15 +42,15 @@ def register_node():
     # print("Decrypted data:", data)
     decoded_data = data.decode('utf-8')
     data = json.loads(decoded_data)
-    registered_nodes[data['node_name']] = "http://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
+    registered_nodes[data['node_name']] = "https://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
     registered_devices[data['node_name']] = data['device_names'].split(',')
     registered_sensors[data['node_name']] = data['sensor_name'].split(',')
     registered_sensors_ports[data['node_name']] = data['sensor_port'].split(',')
     # Store registration information
     #change for PI
-    # registered_nodes["http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
+    # registered_nodes["https://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
     # registered_sensors[sensor_name] = sensor_port
-    # print(f"Node registered: {node_address} , ","http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
+    # print(f"Node registered: {node_address} , ","https://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
     print("Registered Nodes: ",registered_nodes)
     print("Registered Devives: ",registered_devices)
     print("Registered Sensors: ",registered_sensors)
@@ -60,7 +63,7 @@ def check_alive():
         try:
             # print(node_name)
             # print(node_add+"/checkalive")
-            response = requests.get(node_add+"/checkalive", timeout=1)
+            response = requests.get(node_add+"/checkalive", timeout=1, verify=False)
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
         except requests.exceptions.RequestException as e:
             registered_nodes.pop(node_name)
@@ -83,7 +86,7 @@ def find_data():
             ip_withdata=registered_nodes[key]
             # print(ip_withdata)
             data_url = str(ip_withdata)+":33696/getsensordata"
-            response = requests.post(data_url, headers=headers, data=payload, timeout=5)
+            response = requests.post(data_url, headers=headers, data=payload, timeout=5, verify=False)
             response.raise_for_status()
             # print("Response from server ",response.text)
             return Response(response.text, headers=headers_csv)
@@ -121,4 +124,4 @@ if __name__ == '__main__':
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
     scheduler.start()
-    app.run(host="0.0.0.0", port=33700)
+    app.run(host="0.0.0.0", port=33700, ssl_context='adhoc')

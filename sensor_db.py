@@ -9,13 +9,16 @@ from io import StringIO
 import csv
 import socket
 import json, requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 import encryptionCompression as ec
 aes_key = ec.load_aes_key_from_file('aes_key.bin')
 
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
-node_address = "http://127.0.0.1:33696/register"
+node_address = "https://127.0.0.1:33696/register"
 headers = {
             'Content-Type': 'application/json'
             }
@@ -104,7 +107,7 @@ database_path = "data/sensor.db"
 def check_alive():
     print("Alive")
     # print(hostname, IPAddr)
-    # return jsonify({'message': '{} is alive!'.format("http://rasp-0"+str(IPAddr)[-2:]+".berry.scss.tcd.ie")}), 200
+    # return jsonify({'message': '{} is alive!'.format("https://rasp-0"+str(IPAddr)[-2:]+".berry.scss.tcd.ie")}), 200
     return jsonify({'message': '{} sensor is alive!'.format(value)}), 200
 
 def broadcast_alive():
@@ -185,4 +188,4 @@ if __name__ == '__main__':
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
     scheduler.start()
-    app.run(host="localhost", port=args.port)
+    app.run(host="localhost", port=args.port, ssl_context='adhoc')
