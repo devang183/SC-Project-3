@@ -8,6 +8,7 @@ from collections import defaultdict
 import socket
 import json
 import argparse
+import asyncio
 
 #-----Sambit---------------
 import encryptionCompression as ec
@@ -69,17 +70,47 @@ def syncwithnodes():
         return response.status_code
     except:
         print("central server down, distributed mode enabled")
-        for i in range(1, 50): # ip range
-            if(i == hostname[:-2]):
-                continue
-            try:
-                # print("trying ip: ",base_url.format(i))
-                response = requests.post(base_url.format(i), headers=headers, data=encrypted_data, timeout=0.5)
-            except:
-                n = 0
+        broadcast_address = '<broadcast>'
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        server_socket.sendto(encrypted_data, (broadcast_address, 33696))
+
+        # for i in range(1, 50): # ip range
+        #     if(i == hostname[:-2]):
+        #         continue
+        #     try:
+        #         # print("trying ip: ",base_url.format(i))
+        #         response = requests.post(base_url.format(i), headers=headers, data=encrypted_data, timeout=0.5)
+        #     except:
+        #         n = 0
         # print(ip_data)
         # print(ip_port)
         return True
+
+def discover_services(port=33696):
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    client_socket.bind(('0.0.0.0', port))
+    client_socket.settimeout(10)
+    try:
+        print("Listening for distributed services")
+        data, addr = client_socket.recvfrom(1024)
+        data = ec.decrypt_message(data, aes_key)
+        # print("Decrypted data:", data)
+        data = json.loads(data.decode('utf-8'))
+        # print(f"Discovered service: {data}")
+        if 'node_name' in data and (data['node_name']!=args.name):
+            dis_registered_nodes[data['node_name']] = "http://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
+            dis_registered_devices[data['node_name']] = data['device_names'].split(',')
+            dis_registered_sensors[data['node_name']] = data['sensor_name'].split(',')
+            dis_registered_sensors_ports[data['node_name']] = data['sensor_port'].split(',')
+            dis_registration_timestamps[data['node_name']] = time.time()
+            print(f"Discovered service: {data}")
+        else:
+            print("Received a broadcast, but it lacks required fields.")
+    except json.JSONDecodeError:
+        print("Received a broadcast, but it is not a valid JSON.")
+
 
 @app.route('/checkalive', methods=['GET'])
 def check_alive():
@@ -330,6 +361,7 @@ if __name__ == '__main__':
     scheduler.add_job(func=syncwithnodes, trigger="interval", seconds=5)
     scheduler.add_job(func=hit_alive, trigger="interval", seconds=5)
     scheduler.add_job(func=cleanup_devices, trigger="interval", seconds=5)
+    scheduler.add_job(func=discover_services, trigger="interval", seconds=10)
     
     #------------------Sambit's changes------------------
     storage = ss.SecureStorage()
@@ -339,5 +371,4 @@ if __name__ == '__main__':
     # syncwithnodes()
     scheduler.start()
     app.run(host="0.0.0.0",port=33696)
-
 
