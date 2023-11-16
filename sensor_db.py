@@ -9,6 +9,10 @@ from io import StringIO
 import csv
 import socket
 import json, requests
+
+import encryptionCompression as ec
+aes_key = ec.load_aes_key_from_file('aes_key.bin')
+
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
 node_address = "http://127.0.0.1:33696/register"
@@ -104,10 +108,13 @@ def check_alive():
     return jsonify({'message': '{} sensor is alive!'.format(value)}), 200
 
 def broadcast_alive():
-    data_payload = {"sensor_name": value, "port": args.port}
-    data_payload = json.dumps(data_payload)
+    json_payload = {"sensor_name": value, "port": args.port}
+    data_payload = json.dumps(json_payload)
+    json_data_bytes = data_payload.encode('utf-8')
+    json_data_bytes = ec.encrypt_message(json_data_bytes, aes_key)
+    
     try:
-        response = requests.post(node_address, headers=headers, data=data_payload, timeout=1)
+        response = requests.post(node_address, headers=headers, data=json_data_bytes, timeout=1)
         response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
     except requests.exceptions.RequestException as e:
         print("Unable to register with server")

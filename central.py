@@ -8,6 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from rbac import is_admin, users
 import tpm as ss
+import encryptionCompression as ec
 #---------------------------------
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
@@ -15,7 +16,7 @@ IPAddr = socket.gethostbyname(hostname)
 headers = {
             'Content-Type': 'application/json'
             }
-
+aes_key = ec.load_aes_key_from_file('aes_key.bin')
 app = Flask(__name__)
 # Dictionary to store information about registered nodes
 registered_nodes = defaultdict(dict)
@@ -33,8 +34,12 @@ storage = ss.SecureStorage()
 @app.route('/centralregistry', methods=['POST'])
 def register_node():
     # print(request)
-    data = request.get_json()
-    registered_nodes[data['node_name']] = data['node_address']
+    data = request.data
+    data = ec.decrypt_message(data, aes_key)
+    # print("Decrypted data:", data)
+    decoded_data = data.decode('utf-8')
+    data = json.loads(decoded_data)
+    registered_nodes[data['node_name']] = "http://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
     registered_devices[data['node_name']] = data['device_names'].split(',')
     registered_sensors[data['node_name']] = data['sensor_name'].split(',')
     registered_sensors_ports[data['node_name']] = data['sensor_port'].split(',')
@@ -43,16 +48,18 @@ def register_node():
     # registered_nodes["http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
     # registered_sensors[sensor_name] = sensor_port
     # print(f"Node registered: {node_address} , ","http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
-    print(registered_nodes)
-    print(registered_devices)
-    print(registered_sensors)
-    print(registered_sensors_ports)
+    print("Registered Nodes: ",registered_nodes)
+    print("Registered Devives: ",registered_devices)
+    print("Registered Sensors: ",registered_sensors)
+    print("Registered Sensor Ports: ",registered_sensors_ports)
     return jsonify({'message': 'Registration successful'}), 200
 
 def check_alive():
     for node_name, node_add in registered_nodes.copy().items():
-        # print(f"Node Address: {node_address}")
+        # print(registered_nodes)
         try:
+            # print(node_name)
+            # print(node_add+"/checkalive")
             response = requests.get(node_add+"/checkalive", timeout=1)
             response.raise_for_status()  # Raises an HTTPError for bad responses (4xx and 5xx)
         except requests.exceptions.RequestException as e:
@@ -94,7 +101,6 @@ def login():
     else:
         return jsonify({"message": "Invalid credentials"}), 401
 
-
 @app.route('/read_secure_storage', methods=['GET'])
 @jwt_required()
 def read_secure_storage():
@@ -115,4 +121,4 @@ if __name__ == '__main__':
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
     scheduler.start()
-    app.run(host="localhost", port=33700)
+    app.run(host="0.0.0.0", port=33700)

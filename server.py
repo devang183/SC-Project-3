@@ -17,7 +17,6 @@ import tpm as ss
 from flask import send_file
 #--------------------------
 
-
 parser = argparse.ArgumentParser(description='Run network')
 parser.add_argument('--name', type=str, help='Name of the node')
 args = parser.parse_args()
@@ -36,9 +35,11 @@ dis_registered_sensors_ports = defaultdict(dict)
 dis_registration_timestamps = defaultdict(dict)
 
 app = Flask(__name__)
+aes_key = ec.load_aes_key_from_file('aes_key.bin')
+central_url =  "http://rasp-028.berry.scss.tcd.ie:33700"
+# central_url="http://10.35.70.28:33700"
 
-# central_url =  "http://rasp-028.berry.scss.tcd.ie:33700/centralregistry"
-central_url= "http://localhost:33700"
+# central_url= "http://localhost:33700"
 headers = {
             'Content-Type': 'application/json'
             }
@@ -58,15 +59,22 @@ def syncwithnodes():
     "sensor_port":','.join(list(registered_sensors.values()))}
     json_payload = json.dumps(data_payload)
     # print(data_payload)
+    #for JSON data
+    json_data_bytes = json_payload.encode('utf-8')
+    encrypted_data = ec.encrypt_message(json_data_bytes, aes_key)
+    # print("Encrypted data:", encrypted_data)
     try:
-        response = requests.post(central_url+"/centralregistry", headers=headers, data=json_payload, timeout=1)
+        # print(central_url+"/centralregistry")
+        response = requests.post(central_url+"/centralregistry", headers=headers, data=encrypted_data, timeout=1)
         return response.status_code
     except:
         print("central server down, distributed mode enabled")
         for i in range(1, 50): # ip range
+            if(i == hostname[:-2]):
+                continue
             try:
                 # print("trying ip: ",base_url.format(i))
-                response = requests.post(base_url.format(i), headers=headers, data=data_payload, timeout=0.5)
+                response = requests.post(base_url.format(i), headers=headers, data=encrypted_data, timeout=0.5)
             except:
                 n = 0
         # print(ip_data)
@@ -116,10 +124,16 @@ def cleanup_devices():
 
 @app.route('/register', methods=['POST'])
 def register_node():
-    data = request.get_json()
+    data = request.data
+    data = ec.decrypt_message(data, aes_key)
+    # print("Decrypted data:", data)
+    decoded_data = data.decode('utf-8')
+    data = json.loads(decoded_data)
+    if 'node_name' in data and data['node_name']==args.name:
+        return jsonify({'message': 'Pls dont register yourself'}), 200
     # print(data)
     if 'node_name' in data and (data['node_name']!=args.name):
-        dis_registered_nodes[data['node_name']] = data['node_address']
+        dis_registered_nodes[data['node_name']] = "http://rasp-0"+str(data['node_address'])[-2:]+".berry.scss.tcd.ie"
         dis_registered_devices[data['node_name']] = data['device_names'].split(',')
         dis_registered_sensors[data['node_name']] = data['sensor_name'].split(',')
         dis_registered_sensors_ports[data['node_name']] = data['sensor_port'].split(',')
@@ -139,10 +153,10 @@ def register_node():
             registered_nodes[node_name] = "http://rasp-0"+str(node_add)[-2:]+".berry.scss.tcd.ie"
             # registered_nodes["http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
             print(f"Node registered: {node_name} , ","http://rasp-0"+str(node_add)[-2:]+".berry.scss.tcd.ie")
-            print(registered_nodes)
+            # print(registered_nodes)
             return jsonify({'message': 'Registration successful'}), 200
         elif 'device_name' in data:
-            print(data)
+            # print(data)
             device_name = data['device_name']
             interest = data['interest']
             # registered_nodes["http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie"] = node_data
@@ -150,7 +164,7 @@ def register_node():
             device_registration_timestamps[device_name] = time.time()
             # print(f"Devuce registered: {device_name} , ","http://rasp-0"+str(node_address)[-2:]+".berry.scss.tcd.ie")
             print("Device Registered: ", device_name)
-            print(registered_devices)
+            # print(registered_devices)
             return jsonify({'message': 'Registration successful'}), 200
         else:
             print("incorrect json in registration")
@@ -167,7 +181,7 @@ def allnodes():
 #-----------------------SECURE STORAGE(TPM implementation) Sambit--------------------------
 
 @app.route('/store_secured_peers', methods=['POST'])
-def allnodes():
+def store_secured_peers():
     storage.save_data(request.remote_addr)
     return jsonify({'ip': request.remote_addr}), 200
 
@@ -219,6 +233,7 @@ def read_data():
 @app.route('/getsensordata', methods=['POST'])
 def getsensordata():
     data=request.get_json()
+    print(data)
     interest_sensor=data['sensor_val']
     headers_csv = {
             'Content-Type': 'text/csv',
@@ -318,21 +333,6 @@ if __name__ == '__main__':
     
     #------------------Sambit's changes------------------
     storage = ss.SecureStorage()
-
-
-
-    # aes_key = ec.generate_aes_key()
-    # ec.save_aes_key_to_file(aes_key, 'aes_key.bin')
-    aes_key = ec.load_aes_key_from_file('aes_key.bin')
-    #for JSON data
-    json_data = {"data": "Hi I am Sambit Sourav"}
-    json_data = json.dumps(json_data)
-    json_data_bytes = json_data.encode('utf-8')
-    encrypted_data = ec.encrypt_message(json_data_bytes, aes_key)
-    print("Encrypted data:", encrypted_data)
-    decrypted_data = ec.decrypt_message(encrypted_data, aes_key)
-    print("Decrypted data:", decrypted_data)
-
     #--------------------------
     # Shut down the scheduler when exiting the app
     atexit.register(lambda: scheduler.shutdown())
