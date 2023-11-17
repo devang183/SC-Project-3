@@ -142,12 +142,12 @@ def insert_sensor_data():
             "timestamp": int,
             value: float
         })
-    # Generate temperature data
-    temperature = generate_sensor_data()
+    # Generate data
+    insert_data = generate_sensor_data()
     # Insert data into the database
     db[value].insert({
         "timestamp": int(time.time()),
-        value: temperature
+        value: insert_data
     })
     row_count = db.execute('SELECT COUNT(*) FROM {}'.format(value)).fetchone()[0]
     rows_to_delete = row_count - 1000

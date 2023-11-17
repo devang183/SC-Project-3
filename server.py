@@ -9,7 +9,8 @@ import socket
 import json
 import argparse
 import urllib3
-import ipaddress
+import sqlite_utils, csv
+from io import StringIO
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 #-----Sambit---------------
@@ -23,6 +24,7 @@ from flask import send_file
 parser = argparse.ArgumentParser(description='Run network')
 parser.add_argument('--name', type=str, help='Name of the node')
 args = parser.parse_args()
+database_path = "data/sensor.db"
 
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
@@ -30,6 +32,7 @@ registered_nodes = defaultdict(dict)
 registered_devices = defaultdict(dict)
 registered_sensors = defaultdict(dict)
 device_registration_timestamps = defaultdict(dict)
+csv_data_cache = defaultdict(dict)
 
 dis_registered_nodes = defaultdict(dict)
 dis_registered_devices = defaultdict(dict)
@@ -38,7 +41,7 @@ dis_registered_sensors_ports = defaultdict(dict)
 dis_registration_timestamps = defaultdict(dict)
 
 app = Flask(__name__)
-aes_key = ec.load_aes_key_from_file('aes_key.bin')
+aes_key = ec.load_aes_key_from_file('keys/aes_key.bin')
 central_url =  "https://rasp-028.berry.scss.tcd.ie:33700"
 # central_url="https://10.35.70.28:33700"
 
@@ -228,23 +231,18 @@ def read_secure_storage():
 #-----------------------ENCRYPTION AND COMPRESSION (Sambit)--------------------------
 @app.route('/share_key', methods=['POST'])
 def share_private_key_function():
-
-    #Only the selected IPs will be able to download the file
-
     try:
-        return send_file('aes_key.bin', as_attachment=True)
+        return send_file('keys/aes_key.bin', as_attachment=True)
     except FileNotFoundError:
         pass  # Do nothing here or handle the exception
-
     # If the loop completes without returning, handle the case when the file is not found
     return "File not found", 404
-
 
 @app.route('/broadcast', methods=['POST'])
 def BroadCastTextData():
     print("Broadcasting")
     csv_data = request.data.decode('utf-8')
-    loaded_aes_key = ec.load_aes_key_from_file('aes_key.bin') 
+    loaded_aes_key = ec.load_aes_key_from_file('keys/aes_key.bin')
     compressed_data = ec.compress_text(csv_data) 
     encrypted_data = ec.encrypt_message(compressed_data, loaded_aes_key)
     encoded_data = base64.b64encode(encrypted_data).decode('utf-8')
@@ -256,7 +254,7 @@ def BroadCastTextData():
 def read_data():
     data = request.json.get('data')
     print("Encrypted data:", data)
-    loaded_aes_key = ec.load_aes_key_from_file('aes_key.bin')
+    loaded_aes_key = ec.load_aes_key_from_file('keys/aes_key.bin')
     decrypted_message = ec.decrypt_message(b64decode(data), loaded_aes_key)
     decompressed_text = ec.decompress_text(decrypted_message)
     print("Decrypted data:", decompressed_text)
@@ -287,6 +285,19 @@ def getsensordata():
             #if local server down, try central and distributed
             print("Incorrect JSON")
             return jsonify({'message': 'Incorrect Json'}), 404
+    elif interest_sensor in csv_data_cache.keys():
+        print("Using Cached data")
+        csv_data = StringIO(newline='')
+        csv_writer = csv.writer(csv_data)
+        for interest_sensor_cache, csv_rows in csv_data_cache.copy().items():
+            if interest_sensor==interest_sensor_cache:
+                header = csv_rows[0]
+                csv_writer.writerow(header)
+                csv_writer.writerows(csv_rows[1:])
+                # Write the rows
+                csv_writer.writerows(csv_rows)
+        return Response(csv_data.getvalue(), headers=headers_csv)
+
     else:#if its not available locally, try central and distributed
         print(registered_sensors)
         try:
@@ -302,6 +313,12 @@ def getsensordata():
             json_resp = response.json()
             response.raise_for_status()
             response = requests.post(json_resp["data_available"], headers=headers, data=payload, timeout=5, verify=False)
+            csv_data = StringIO(response.text,newline='')
+            # Use the CSV module to read the content
+            csv_reader = csv.reader(csv_data)
+            csv_rows = [row for row in csv_reader]
+            csv_data_cache[interest_sensor]=csv_rows
+
             return Response(response.text, headers=headers_csv)
         except:
             print("Central down, Trying distributed")
@@ -312,6 +329,7 @@ def getsensordata():
                 if interest_sensor in value:
                     payload = {"sensor_val":interest_sensor, "duration":data['duration']}
                     payload = json.dumps(payload)
+                    print(payload)
                     ip_withdata=dis_registered_nodes[key]
                     # print(ip_withdata)
                     data_url = str(ip_withdata)+":33696/getsensordata"
@@ -319,6 +337,11 @@ def getsensordata():
                     response = requests.post(data_url, headers=headers, data=payload, timeout=5, verify=False)
                     response.raise_for_status()
                     # print("Response from distributed ",response.text)
+                    csv_data = StringIO(response.text,newline='')
+                    # Use the CSV module to read the content
+                    csv_reader = csv.reader(csv_data)
+                    csv_rows = [row for row in csv_reader]
+                    csv_data_cache[interest_sensor]=csv_rows
                     return Response(response.text, headers=headers_csv)
         except:
             print("not available in distributed")
@@ -364,13 +387,17 @@ def getdata():
         print("Not Found")
         return 404
 
+
+def clearcache():
+    csv_data_cache.clear()
+
 if __name__ == '__main__':
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=syncwithnodes, trigger="interval", seconds=5)
     scheduler.add_job(func=hit_alive, trigger="interval", seconds=10)
     scheduler.add_job(func=cleanup_devices, trigger="interval", seconds=10)
     scheduler.add_job(func=discover_services, trigger="interval", seconds=10, max_instances=1, replace_existing=True)
-    
+    scheduler.add_job(func=clearcache, trigger="interval", seconds=30)
     #------------------Sambit's changes------------------
     storage = ss.SecureStorage()
     #--------------------------
