@@ -8,9 +8,12 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from io import StringIO
 import csv
 import socket
-import json, requests
+import json, requests, os
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import logging
+logging.getLogger("werkzeug").disabled = True
+
 
 import encryptionCompression as ec
 aes_key = ec.load_aes_key_from_file('aes_key.bin')
@@ -21,13 +24,22 @@ node_address = "https://127.0.0.1:33696/register"
 headers = {
             'Content-Type': 'application/json'
             }
+from flask_talisman import Talisman
+csp = {
+    'default-src': [
+        '\'self\'',
+        '*.scss.tcd.ie'
+    ]
+}
+
+app = Flask(__name__)
+talisman = Talisman(app, content_security_policy=csp)
 
 parser = argparse.ArgumentParser(description='Run sensor')
 parser.add_argument('--port', type=str, help='Run on which port')
 parser.add_argument('--sensor', type=str, help='Run on which port')
 
 args = parser.parse_args()
-app = Flask(__name__)
 
 if args.sensor == "temp":
     minval = 0  # Celsius
@@ -187,4 +199,5 @@ if __name__ == '__main__':
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
     scheduler.start()
+    app.config['SECRET_KEY']=os.getenv('SECRET_KEY')
     app.run(host="localhost", port=args.port, ssl_context='adhoc')

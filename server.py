@@ -3,13 +3,16 @@ import requests
 import time
 import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
-from os import walk
+import os
 from collections import defaultdict
 import socket
 import json
 import argparse
 import urllib3
 import sqlite_utils, csv
+import logging
+logging.getLogger("werkzeug").disabled = True
+
 from io import StringIO
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -20,6 +23,16 @@ from base64 import b64decode
 import tpm as ss
 from flask import send_file
 #--------------------------
+from flask_talisman import Talisman
+csp = {
+    'default-src': [
+        '\'self\'',
+        '*.scss.tcd.ie'
+    ]
+}
+
+app = Flask(__name__)
+talisman = Talisman(app, content_security_policy=csp)
 
 parser = argparse.ArgumentParser(description='Run network')
 parser.add_argument('--name', type=str, help='Name of the node')
@@ -40,7 +53,7 @@ dis_registered_sensors = defaultdict(dict)
 dis_registered_sensors_ports = defaultdict(dict)
 dis_registration_timestamps = defaultdict(dict)
 
-app = Flask(__name__)
+
 aes_key = ec.load_aes_key_from_file('keys/aes_key.bin')
 central_url =  "https://rasp-028.berry.scss.tcd.ie:33700"
 # central_url="https://10.35.70.28:33700"
@@ -49,6 +62,8 @@ central_url =  "https://rasp-028.berry.scss.tcd.ie:33700"
 headers = {
             'Content-Type': 'application/json'
             }
+cached_custom_line = ['Accessing', 'Cached_Data']
+
 
 def syncwithnodes():
     # print("chalu hogaya bhai")
@@ -213,7 +228,6 @@ def allnodes():
     # print(ip_port)
     return jsonify({'ip': request.remote_addr}), 200
 
-
 #-----------------------SECURE STORAGE(TPM implementation) Sambit--------------------------
 
 @app.route('/store_secured_peers', methods=['POST'])
@@ -317,6 +331,7 @@ def getsensordata():
             # Use the CSV module to read the content
             csv_reader = csv.reader(csv_data)
             csv_rows = [row for row in csv_reader]
+            csv_rows.append(cached_custom_line)
             csv_data_cache[interest_sensor]=csv_rows
 
             return Response(response.text, headers=headers_csv)
@@ -341,51 +356,52 @@ def getsensordata():
                     # Use the CSV module to read the content
                     csv_reader = csv.reader(csv_data)
                     csv_rows = [row for row in csv_reader]
+                    csv_rows.append(cached_custom_line)
                     csv_data_cache[interest_sensor]=csv_rows
                     return Response(response.text, headers=headers_csv)
         except:
             print("not available in distributed")
         return jsonify({'message': 'Incorrect Json/Not available'}), 404
 
-@app.route('/getdata', methods=['POST'])
-def getdata():
-    filenames = next(walk("data/"), (None, None, []))[2]  # [] if no file
-    # interest_packet=request.data.decode('UTF-8')
-    data=request.get_json()
-    interest_packet=data['interest_data']
-    print("Interest packet = ",interest_packet)
-    interest_payload = {"interest_data": interest_packet}
-    interest_payload = json.dumps(interest_payload)
-    try:
-        response = requests.post(central_url+"/centralregistry", headers=headers, data=interest_payload, timeout=1, verify=False)
-        return response.json()
-    except:
-        print("Distributed mode being used")
-        if interest_packet in filenames:
-            print("Found in local")
-            f = open("data/"+interest_packet, 'r')
-            interest_data = f.read()
-            f.close()
-            return jsonify({'data': interest_data}), 200
-        print("not found in local")
-        # for key, value in ip_data.items():
-        for key, value in registered_nodes.copy().items():
-            if interest_packet in value.split(','):
-                ip_withdata=key
-                # print(ip_withdata)
-                data_url = str(ip_withdata)+":33696/getdata"
-                payload = {"interest_data": interest_packet}
-                headers = {
-                'Content-Type': 'application/json'
-                }
-                try:
-                    response = requests.post(data_url, headers=headers, data=payload, timeout=5, verify=False)
-                    print(response)
-                except:
-                    print("Error, the Node is not up: ",data_url)
-                return response.json()
-        print("Not Found")
-        return 404
+# @app.route('/getdata', methods=['POST'])
+# def getdata():
+#     filenames = next(walk("data/"), (None, None, []))[2]  # [] if no file
+#     # interest_packet=request.data.decode('UTF-8')
+#     data=request.get_json()
+#     interest_packet=data['interest_data']
+#     print("Interest packet = ",interest_packet)
+#     interest_payload = {"interest_data": interest_packet}
+#     interest_payload = json.dumps(interest_payload)
+#     try:
+#         response = requests.post(central_url+"/centralregistry", headers=headers, data=interest_payload, timeout=1, verify=False)
+#         return response.json()
+#     except:
+#         print("Distributed mode being used")
+#         if interest_packet in filenames:
+#             print("Found in local")
+#             f = open("data/"+interest_packet, 'r')
+#             interest_data = f.read()
+#             f.close()
+#             return jsonify({'data': interest_data}), 200
+#         print("not found in local")
+#         # for key, value in ip_data.items():
+#         for key, value in registered_nodes.copy().items():
+#             if interest_packet in value.split(','):
+#                 ip_withdata=key
+#                 # print(ip_withdata)
+#                 data_url = str(ip_withdata)+":33696/getdata"
+#                 payload = {"interest_data": interest_packet}
+#                 headers = {
+#                 'Content-Type': 'application/json'
+#                 }
+#                 try:
+#                     response = requests.post(data_url, headers=headers, data=payload, timeout=5, verify=False)
+#                     print(response)
+#                 except:
+#                     print("Error, the Node is not up: ",data_url)
+#                 return response.json()
+#         print("Not Found")
+#         return 404
 
 
 def clearcache():
@@ -405,6 +421,7 @@ if __name__ == '__main__':
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
     scheduler.start()
+    app.config['SECRET_KEY']=os.getenv('SECRET_KEY')
     app.run(host="0.0.0.0",port=33696, ssl_context='adhoc')
 
 

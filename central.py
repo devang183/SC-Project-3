@@ -2,10 +2,13 @@ from flask import Flask, jsonify, request, Response
 import requests
 from collections import defaultdict
 import socket
-import atexit, json
+import atexit, json, os
 from apscheduler.schedulers.background import BackgroundScheduler
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import logging
+logging.getLogger("werkzeug").disabled = True
+
 
 #----------Sambit----------------
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
@@ -13,6 +16,17 @@ from rbac import is_admin, users
 import tpm as ss
 import encryptionCompression as ec
 #---------------------------------
+from flask_talisman import Talisman
+csp = {
+    'default-src': [
+        '\'self\'',
+        '*.scss.tcd.ie'
+    ]
+}
+
+app = Flask(__name__)
+talisman = Talisman(app, content_security_policy=csp)
+
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
 
@@ -20,7 +34,6 @@ headers = {
             'Content-Type': 'application/json'
             }
 aes_key = ec.load_aes_key_from_file('aes_key.bin')
-app = Flask(__name__)
 # Dictionary to store information about registered nodes
 registered_nodes = defaultdict(dict)
 registered_devices = defaultdict(dict)
@@ -130,4 +143,5 @@ if __name__ == '__main__':
     atexit.register(lambda: scheduler.shutdown())
     # syncwithnodes()
     scheduler.start()
+    app.config['SECRET_KEY']=os.getenv('SECRET_KEY')
     app.run(host="0.0.0.0", port=33700, ssl_context='adhoc')

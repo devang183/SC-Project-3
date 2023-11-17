@@ -4,6 +4,7 @@ if [ -z "$1" ]; then
 fi
 
 server_name="$1"
+export SECRET_KEY='f3cfe9ed8fae309f02079dbf'
 
 # nohup python3 -u central.py > central_output.log 2>&1 &   
 
